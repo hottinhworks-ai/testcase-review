@@ -1,8 +1,69 @@
-# Bộ skill `/tc-review` — Đối chiếu Test Case ↔ FSD (coverage gap review)
+# `/tc-review` — Test Case Coverage Review against FSD
 
-> Gói đóng sẵn để gửi/cài sang project khác. Skill `/tc-review` đọc **FSD (source of truth)** + **bộ test case có sẵn**, trích mọi đơn vị kiểm thử từ FSD rồi đo **độ phủ của test case so với FSD** — chỉ ra chỗ **thiếu / yếu / thừa** và đề xuất test case bổ sung.
+> A Claude Code skill that checks whether an existing **test case** set actually covers its **FSD** — finding what's missing, weak, or out of scope.
+> Skill cho Claude Code: kiểm tra **bộ test case** đã cover hết **FSD** chưa — chỉ ra chỗ thiếu, yếu, hoặc ngoài phạm vi.
 
-Mục tiêu: trả lời câu hỏi **"test case đã cover hết FSD chưa?"** một cách có hệ thống, truy được về FSD, không bịa.
+---
+
+## 🇬🇧 English
+
+### The pain point
+
+QA writes test cases from an FSD, but **nobody really knows if the test set covers the whole spec**. Checking coverage by hand — eyeballing a test spreadsheet against a long FSD — is slow, inconsistent, and easy to get wrong. The usual blind spots:
+
+- Defined **error codes / business rules / validations** that no test exercises.
+- Functions tested only on the **happy path**, with no negative or boundary cases.
+- **Out-of-scope** test cases that test behaviour the FSD never specified (or that reveal the FSD is missing a spec).
+- No reliable **coverage %**, and no traceable list of gaps to act on.
+
+### Purpose
+
+`/tc-review` automatically compares an **existing test case set** against its **FSD (the source of truth)** and answers *"have the test cases covered the whole FSD?"* — producing a coverage matrix, a prioritized gap list (**missing / weak / orphan**), and concrete **test cases to add**. Everything is traceable back to the FSD; it never invents gaps for parts the FSD doesn't specify.
+
+### How it works
+
+A 7-phase flow (report-first — prints to chat, asks before writing files):
+
+1. **Ingest** — read the FSD + test cases (from Outline via MCP, or local `CSV` / `MD` / `XLSX`).
+2. **Extract coverage units** from the FSD with stable IDs: functional requirements, flow steps, business rules, field validations, error codes, enumerations, testable NFRs.
+3. **Map** each test case to those units (inferred mappings are flagged `?` for QA to confirm).
+4. **Score gaps** per unit — ✅ Covered / ⚠️ Weak / ❌ Missing — plus 🔶 orphan test cases, with severity.
+5. **Report** the coverage matrix + % to chat.
+6. **Write** the full report to `docs/test-coverage/{feature}.md` (after approval).
+7. **Suggest** the test cases to add, prioritized by severity.
+
+**Core principles:** the FSD is the source of truth; never fabricate gaps for unspecified parts (flag them as Open Questions instead); *covered ≠ well-tested* — coverage is counted by branch (happy / negative / boundary), so one happy-path test for a rule with error branches is still **Weak**.
+
+---
+
+## 🇻🇳 Tiếng Việt
+
+### Vấn đề (pain point)
+
+QA viết test case từ FSD, nhưng **không ai chắc bộ test đã cover hết đặc tả chưa**. Kiểm tra độ phủ thủ công — dò bảng test case đối chiếu một FSD dài — vừa chậm, vừa thiếu nhất quán, dễ sót. Các điểm mù thường gặp:
+
+- **Mã lỗi / business rule / validation** đã định nghĩa nhưng không có test nào chạm tới.
+- Chức năng chỉ test **happy path**, thiếu case negative/biên.
+- Test case **ngoài phạm vi** — kiểm thử hành vi FSD không hề spec (hoặc lộ ra FSD đang thiếu spec).
+- Không có **% độ phủ** đáng tin và không có danh sách gap truy được để xử lý.
+
+### Mục đích
+
+`/tc-review` tự động đối chiếu **bộ test case có sẵn** với **FSD (source of truth)** và trả lời câu hỏi *"test case đã cover hết FSD chưa?"* — sinh ma trận coverage, danh sách gap có ưu tiên (**thiếu / yếu / thừa**), và **test case cần bổ sung** cụ thể. Mọi nhận định truy được về FSD; không bịa gap cho phần FSD không spec.
+
+### Cách hoạt động
+
+Luồng 7 pha (report-first — in ra chat, xác nhận trước khi ghi file):
+
+1. **Đọc nguồn** — FSD + test case (từ Outline qua MCP, hoặc file local `CSV` / `MD` / `XLSX`).
+2. **Trích đơn vị kiểm thử** từ FSD kèm ID ổn định: functional requirement, bước luồng, business rule, field validation, mã lỗi, enumeration, NFR kiểm được.
+3. **Map** từng test case vào các đơn vị đó (map suy luận đánh dấu `?` để QA xác nhận).
+4. **Chấm gap** mỗi đơn vị — ✅ Covered / ⚠️ Yếu / ❌ Thiếu — cùng 🔶 test case thừa (orphan), kèm severity.
+5. **Báo cáo** ma trận coverage + % ra chat.
+6. **Ghi** báo cáo đầy đủ vào `docs/test-coverage/{feature}.md` (sau khi duyệt).
+7. **Đề xuất** test case cần bổ sung, ưu tiên theo severity.
+
+**Nguyên tắc cốt lõi:** FSD là chuẩn; không bịa gap cho phần chưa spec (ghi Open Question); *covered ≠ test tốt* — đếm theo nhánh (happy / negative / boundary), nên 1 test happy-path cho rule có nhánh lỗi vẫn là **Yếu**.
 
 ---
 
@@ -59,16 +120,6 @@ cp    claude-code/_templates/tc-coverage-report.md  <workspace>/_templates/
 ```
 
 Hoặc nói tự nhiên: *"review test case"*, *"test case cover hết FSD chưa"*, *"đối chiếu test case với FSD"*.
-
-**Luồng 7 pha (report-first, L1 trước khi ghi file):**
-
-1. **A** — Đọc FSD + test case (Outline qua MCP, hoặc file local CSV/MD/XLSX).
-2. **B** — Trích đơn vị kiểm thử từ FSD, gán ID: `FR` / `FLOW` / `BR` / `VAL` / `ERR` / `ENUM` / `NFR`.
-3. **C** — Map test case vào từng đơn vị (map suy luận đánh dấu `?`).
-4. **D** — Chấm gap: ✅ Covered / ⚠️ Yếu / ❌ Thiếu + 🔶 TC thừa, kèm severity.
-5. **E** — In ma trận coverage + % ra chat (report-first).
-6. **F** — Ghi `docs/test-coverage/{feature}.md` (xác nhận L1; `--report-only` để bỏ qua).
-7. **G** — Đề xuất test case bổ sung + recommend next.
 
 ---
 
