@@ -13,13 +13,22 @@ owner: "@{current_user}"
 created: {YYYY-MM-DD}
 updated: {YYYY-MM-DD}
 coverage_pct: {pct}
+score: {score}            # điểm rubric 0–100 (Pha D.7)
+grade: {A|B|C|D}
+gate_status: {pass|returned}   # cổng sàng đầu vào (Pha A.0)
+round: {R}                # vòng review (nếu multi-round)
 changelog:
-  - {YYYY-MM-DD} | /tc-review | initial coverage review — {C}/{T} covered, {Mi} missing, {W} weak, {O} orphan
+  - {YYYY-MM-DD} | /tc-review | initial coverage review — score {score}, {C}/{T} covered, {Mi} missing, {W} weak, {O} orphan
 ---
 
 # Báo cáo độ phủ Test Case — {Feature}
 
-> Đối chiếu bộ test case với FSD `{tên FSD}`. **FSD là chuẩn**; báo cáo đo độ phủ test case so với FSD tại thời điểm {ngày}. Nguồn test case: `{nguồn}`.
+> Đối chiếu bộ test case với FSD `{tên FSD}`. **FSD là chuẩn**; báo cáo đo độ phủ test case so với FSD tại thời điểm {ngày}. Nguồn test case: `{nguồn}`. {Vòng {R} nếu multi-round.}
+
+## 0. Cổng sàng đầu vào (readiness)
+
+**Kết quả:** ✅ Đậu — đủ cấu trúc để review.
+*(Nếu KHÔNG đậu → ghi: ⛔ **Trả về QA/BA** + lý do + dẫn chứng định lượng (cột thiếu, % TC thiếu Expected, FSD còn `<Hint>`) + việc cần làm; KHÔNG điền các mục dưới.)*
 
 ## 1. Tóm tắt
 
@@ -49,18 +58,42 @@ changelog:
 
 > Lưu ý: map suy luận (đánh `?`) {có/không} tính vào "Covered". {Số map `?` cần QA xác nhận}.
 
+### Điểm bộ test (rubric scorecard) — {score}/100 · hạng {A|B|C|D}
+
+| Trục | Trọng số | Điểm | Trừ vì (dẫn chứng) → cải thiện |
+|------|----------|------|-------------------------------|
+| Độ phủ | 30 | {x} | {vd: thiếu ERR-02, ERR-04 (HIGH) → bổ sung TC negative} |
+| Negative/boundary | 20 | {x} | {VAL-pwd-len chỉ happy → thêm biên} |
+| Sức khỏe thực thi | 15 | {x} | {FR-05 Failed (DEF-12) → fix rồi retest} |
+| Traceability | 10 | {x} | {không cột FSD ref → {n} map `?`} |
+| Cấu trúc/rõ ràng | 10 | {x} | {…} |
+| Kỷ luật phạm vi | 10 | {x} | {…} |
+| Hành trình (blocking) | 5 | {x} | {…} |
+
+> Mỗi điểm trừ truy được về dẫn chứng (ID). Benchmark: độ phủ ≥95 xuất sắc · 80–94 khá · 60–79 TB · <60 yếu. Hạng: A ≥90 · B 75–89 · C 60–74 · D <60.
+
 ## 2. Ma trận coverage (FSD → Test Case)
 
-| ID đơn vị | Mô tả (từ FSD) | Nguồn FSD | Test case map | TT thực thi | Trạng thái | Severity |
-|-----------|----------------|-----------|---------------|-------------|------------|----------|
-| FR-01 | {…} | Mục {n} | TC-001, TC-002 | Passed | ✅ Covered | — |
-| ERR-REP-005 | Bắt buộc chọn nhân viên | Main Flow b6 | — | — | ❌ Missing | HIGH |
-| VAL-fromdate | From Date hợp lệ | UI Validation | TC-010 (happy) | Passed | ⚠️ Weak | MEDIUM |
-| FR-07 | {…} | Mục {n} | TC-030 | Failed | 🟠 Covered-but-Failing | HIGH |
-| ENUM-actiontype:Edit | Hành động Sửa | Mục 5.2 | TC-020? | Not Run | ⚠️ Weak (map `?`) | MEDIUM |
-| … | | | | | | |
+| ID đơn vị | Mô tả (từ FSD) | Nguồn FSD | Journey | Test case map | TT thực thi | Trạng thái | Severity |
+|-----------|----------------|-----------|---------|---------------|-------------|------------|----------|
+| FR-01 | {…} | Mục {n} | signin | TC-001, TC-002 | Passed | ✅ Covered | — |
+| ERR-REP-005 | Bắt buộc chọn nhân viên | Main Flow b6 | core | — | — | ❌ Missing | HIGH |
+| VAL-fromdate | From Date hợp lệ | UI Validation | core | TC-010 (happy) | Passed | ⚠️ Weak | MEDIUM |
+| FR-07 | {…} | Mục {n} | onboarding | TC-030 | Failed | 🟠 Covered-but-Failing 🚧 | CRITICAL |
+| ENUM-actiontype:Edit | Hành động Sửa | Mục 5.2 | admin | TC-020? | Not Run | ⚠️ Weak (map `?`) | MEDIUM |
+| … | | | | | | | |
 
-<!-- Trạng thái: ✅ Covered / ⚠️ Weak / 🟠 Covered-but-Failing / ❌ Missing. `?` = map suy luận chưa xác nhận. Cột TT thực thi lấy từ Status của test case. -->
+<!-- Trạng thái: ✅ Covered / ⚠️ Weak / 🟠 Covered-but-Failing / ❌ Missing. 🚧 = chặn hành trình. `?` = map suy luận chưa xác nhận. Journey = chặng hành trình (E4). -->
+
+### Ma trận ngược (TC → FSD) — soát orphan
+
+| Test case | Map đơn vị FSD | Ghi chú |
+|-----------|----------------|---------|
+| TC-001 | FR-01 | |
+| TC-099 | — | 🔶 orphan (xem Mục 4) |
+| … | | |
+
+<!-- Chiều TC→FSD: TC nào map "—" = ứng viên orphan; đối chiếu lại FSD (grep) trước khi kết luận. -->
 
 ## 3. Gap chi tiết
 
@@ -82,6 +115,10 @@ changelog:
 ### 🟠 Covered-but-Failing/Blocked (có TC nhưng chưa thực sự verify)
 
 - `{ID}` — phủ bởi {TC} nhưng đang **{Failed/Blocked}** ({defect ref nếu có}). Coi như chưa verify cho tới khi TC pass.
+
+### 🚧 Chặn hành trình (blocking — E4)
+
+- `{ID}` (chặng **{onboarding/đăng nhập}**, foundational) đang {Missing/Failing} → **phủ các chặng sau giảm ý nghĩa** cho tới khi pass. Downstream bị ảnh hưởng: {danh sách}. → ưu tiên xử lý trước (vòng 1).
 
 ### ⚖️ Lệch ưu tiên (nếu nguồn có cột Priority)
 

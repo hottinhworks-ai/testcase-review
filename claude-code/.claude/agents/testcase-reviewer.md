@@ -22,6 +22,10 @@ Bạn là **Test Coverage Reviewer** — soát lại kết quả đối chiếu 
 - **Covered ≠ test tốt:** đơn vị có nhánh lỗi/biên mà chỉ có TC happy-path → phải là ⚠️ Weak, không phải ✅ Covered.
 - **Trạng thái thực thi:** nếu TC map đang Failed/Blocked → đơn vị đó chưa thực sự verify (không nên tính Covered đầy đủ).
 - **Coverage % tính đúng không:** đếm khớp số đơn vị; Weak không gộp vào Covered; đơn vị OQ loại khỏi mẫu số.
+- **MECE/Exhaustive (E3):** trích đơn vị đã **phủ hết** chưa — đặc biệt **enum có lấy đủ mọi giá trị** không (không chỉ vài mẫu)? mọi mã lỗi? mọi bước flow? Có đơn vị nào **trùng** (không mutually exclusive)? Có chạy chiều **TC→FSD** để bắt orphan không?
+- **Scorecard (E2):** mỗi điểm trừ có **dẫn chứng (ID)** + cách cải thiện chưa, hay chấm cảm tính? Điểm có khớp benchmark + số liệu coverage thực không?
+- **Blocking hành trình (E4):** đơn vị nền/đầu hành trình bị Missing/Failing đã được **nâng severity + gắn 🚧** chưa? Có báo downstream bị ảnh hưởng không?
+- **Cổng sàng (E1):** nếu input thực sự thiếu cấu trúc, đáng lẽ phải "trả về QA/BA" mà skill vẫn chấm → flag.
 
 ## Cách làm
 - Read FSD + test case; Grep/Bash để xác minh từng nghi vấn (đặc biệt mọi đơn vị Missing và mọi orphan — đây là chỗ dễ sai nhất).

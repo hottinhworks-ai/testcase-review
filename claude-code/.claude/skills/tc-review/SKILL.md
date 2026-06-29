@@ -39,6 +39,10 @@ Bản chất: từ "đã có FSD + test case" → "biết test case còn hở ch
 - **Dùng cột Priority (nếu có).** Phát hiện lệch ưu tiên: đơn vị FSD CRITICAL/HIGH chỉ được phủ bởi TC priority thấp → cảnh báo; nhiều TC priority cao đổ vào phần ngoài phạm vi → cảnh báo.
 - **Verify trước khi báo "thiếu"** (Pha D bắt buộc): với mỗi đơn vị định gán ❌ Missing và mỗi TC định gán 🔶 orphan, grep lại nguồn test/FSD bằng từ khóa (mã lỗi, tên field, "trùng/offline/khóa"…) để tránh false missing / false orphan.
 - **Agent gate (khuyến nghị).** Trước khi ghi báo cáo, spawn `@testcase-reviewer` soi lại ma trận (bắt false missing/orphan, gap bịa, severity lệch). `--no-agent` để bỏ qua.
+- **(E1) Cổng sàng đầu vào — Pha A.0.** Trước khi trích/chấm, kiểm bộ test case + FSD có **đủ cấu trúc tối thiểu** để review không. Không đủ → **KHÔNG chấm coverage** (tránh "review rác"), trả verdict **"Trả về QA/BA"** kèm lý do + **dẫn chứng định lượng** (cột thiếu, % TC thiếu Expected, FSD còn `<Hint>`…). `--force` để bỏ qua gate.
+- **(E3) MECE/Exhaustive + traceability 2 chiều.** Trích đơn vị (Pha B) phải **không chồng lấn & phủ hết** (MECE) — có checklist tự soát "còn loại nào trong FSD chưa quét?". Ma trận **2 chiều**: **FSD→TC** (tìm Missing) *và* **TC→FSD** (tìm orphan có hệ thống).
+- **(E2) Chấm điểm rubric — Pha D.7.** Ngoài coverage %, chấm **scorecard đa trục** (0–100) có **benchmark**; mỗi lần trừ điểm phải ghi **lý do + dẫn chứng (ID cụ thể) + vì sao trừ nhiều/ít + cách cải thiện**. KHÔNG cho điểm cảm tính.
+- **(E4) Phân tầng theo hành trình + chặn theo phụ thuộc.** Gắn đơn vị vào **chặng hành trình** + đánh dấu **happy-path chính**. Đơn vị **nền/đầu hành trình** bị Missing/Failing → **nâng severity** + cảnh báo "phủ phần sau *giảm ý nghĩa*" (onboarding hỏng thì sau pass cũng ít giá trị). Hỗ trợ **nhiều vòng** (`--round N`): vòng 1 tập trung happy-path chính.
 - **Report-first.** Phần phân tích in ra chat trước (ma trận terse + gap). **L1 plan** trước khi Write file báo cáo. `--report-only` = chỉ in chat, không ghi file. `--out-outline <docId>` = ghi báo cáo lên trang Outline thay vì file local.
 - **Read-only nguồn.** KHÔNG sửa FSD, KHÔNG sửa test case. Artifact duy nhất là báo cáo coverage.
 - **Vietnamese-first.** Giữ ID/tên field/mã lỗi gốc; typography "Mục N" không dùng §; `→` chỉ trong bảng/flow.
@@ -55,6 +59,8 @@ Bản chất: từ "đã có FSD + test case" → "biết test case còn hở ch
 /tc-review --out docs/test-coverage/payment.md   # đổi nơi ghi báo cáo (file local)
 /tc-review --out-outline <docId>                 # ghi báo cáo lên 1 trang Outline (thay file local)
 /tc-review --no-agent           # bỏ bước spawn @testcase-reviewer
+/tc-review --force              # bỏ qua cổng sàng đầu vào (Pha A.0), chấm dù input thiếu cấu trúc
+/tc-review --round 1            # review theo vòng (vòng 1 = happy-path chính; ghi rõ vòng trong báo cáo)
 ```
 
 - **Nhận diện nguồn tự động:** token khớp urlId Outline (vd `Lh5DJM2hBg`) hoặc URL `wiki.../doc/...` → đọc qua `mcp__outline__get_document`. Token là đường dẫn file (`*.md`/`*.csv`/`*.xlsx`) → đọc local. Cờ `--src` override khi nhập nhằng.
@@ -74,31 +80,38 @@ Today: !`date +%Y-%m-%d`
 /tc-review <fsd> <testcase>
         │
         ▼
-[Pha A] Resolve + ingest: đọc FSD (Outline/local) + test case (Outline/CSV/MD). In inventory.
+[Pha A] Resolve + ingest: đọc FSD (Outline/local) + test case (Outline/CSV/MD/XLSX). In inventory.
         │
         ▼
-[Pha B] Trích COVERAGE UNIT từ FSD → gán ID (FR/FLOW/BR/VAL/ERR/ENUM/NFR). Bỏ phần trống/Hint/struck.
+[Pha A.0] CỔNG SÀNG (E1): đủ cấu trúc tối thiểu? KHÔNG → trả về QA/BA + dẫn chứng, DỪNG. (--force để bỏ)
         │
         ▼
-[Pha C] Chuẩn hóa test case → map vào coverage unit (ưu tiên traceability tường minh; suy luận → đánh `?`).
+[Pha B] Trích COVERAGE UNIT từ FSD (MECE/Exhaustive, E3) → gán ID + chặng hành trình (E4).
+        Bỏ phần trống/Hint/struck. Xuất danh sách đơn vị đầy đủ (mẫu số).
         │
         ▼
-[Pha D] Detect gap mỗi unit: ✅ Covered / ⚠️ Weak / ❌ Missing + verify-before-missing +
-        overlay trạng thái thực thi (Covered-but-Failing) + severity + cảnh báo lệch priority.
-        Tính coverage % từ danh sách đơn vị. Tìm TC thừa (orphan).
+[Pha C] Chuẩn hóa test case → map 2 chiều FSD↔TC (E3); suy luận → đánh `?`.
+        │
+        ▼
+[Pha D] Detect gap: ✅ Covered / ⚠️ Weak / ❌ Missing + verify-before-missing +
+        overlay exec-status (Covered-but-Failing) + severity + blocking escalation theo hành trình (E4) +
+        cảnh báo lệch priority. Tính coverage % từ danh sách đơn vị.
         │
         ▼
 [Pha D.5] (khuyến nghị) Spawn @testcase-reviewer soi ma trận → chỉnh. (--no-agent để bỏ)
         │
         ▼
-[Pha E] IN BÁO CÁO ra chat (report-first): coverage % (tính) + ma trận terse + gap +
-        Covered-but-Failing + orphan + cảnh báo priority + OQ.
+[Pha D.7] CHẤM RUBRIC (E2): scorecard đa trục 0–100 + benchmark + trừ điểm có dẫn chứng + cải thiện.
+        │
+        ▼
+[Pha E] IN BÁO CÁO ra chat (report-first): scorecard + coverage % + ma trận 2 chiều + gap +
+        Covered-but-Failing + blocking + orphan + cảnh báo priority + OQ.
         │
         ▼
 [Pha F] L1 plan → Write docs/test-coverage/{feature}.md (hoặc --out-outline lên Outline; bỏ nếu --report-only).
         │
         ▼
-[Pha G] Đề xuất test case bổ sung (per Missing/Weak) + recommend next.
+[Pha G] Đề xuất test case bổ sung (per Missing/Weak) + recommend next (vòng tiếp theo nếu multi-round).
 ```
 
 ## Approach (chi tiết từng pha)
@@ -116,6 +129,24 @@ Today: !`date +%Y-%m-%d`
    - **Chỉ khi script lỗi** (xlsx mã hóa, cấu trúc lạ) → mới yêu cầu user export CSV hoặc dán bảng.
 3. In **bảng inventory** (chat): `FSD: {N} mục/section` · `Test case: {M} TC ({có/không} cột traceability) · trạng thái: {p} Passed / {f} Failed / {b} Blocked / {n} Not Run`. Thiếu nguồn → dừng hỏi.
 
+### Pha A.0 — Cổng sàng đầu vào (readiness gate, E1)
+
+3b. **Trước khi trích/chấm**, kiểm bộ test case + FSD có đủ cấu trúc tối thiểu để review không. Tiêu chí "đậu" (mặc định):
+
+    | Kiểm | Ngưỡng đậu | Cách đo |
+    |------|-----------|---------|
+    | TC có **ID** | ≥95% hàng có mã case | đếm hàng có/không ID |
+    | TC có **Expected result** | ≥90% có Expected | đếm ô Expected rỗng |
+    | TC có **Steps** | ≥90% có bước | đếm ô Steps rỗng |
+    | Có cột nhận dạng (ID/Steps/Expected) | đủ 3 | đọc hàng tiêu đề |
+    | FSD có nội dung kiểm thử được | ≥1 đơn vị thật (không toàn `<Hint>`/trống) | quét nhanh |
+
+3c. **Nếu KHÔNG đậu** → KHÔNG chấm coverage. Trả verdict **"⛔ Trả về QA/BA"** kèm:
+    - **Lý do** ngắn (cái gì thiếu).
+    - **Dẫn chứng định lượng** (vd "32/180 TC thiếu Expected", "không có cột traceability", "FSD §5.3, §5.6 còn `<Hint>`").
+    - **Việc cần làm** để đủ điều kiện review.
+    - DỪNG (không sang Pha B). `--force` để bỏ qua gate và chấm dù thiếu (ghi rõ cảnh báo trong báo cáo).
+
 ### Pha B — Trích coverage unit từ FSD
 
 4. Quét FSD, trích đơn vị kiểm thử theo bảng dưới, mỗi đơn vị **1 dòng + ID + 1 câu mô tả**:
@@ -131,7 +162,11 @@ Today: !`date +%Y-%m-%d`
    | NFR kiểm được | Performance/Security (có ngưỡng/điều kiện cụ thể) | `NFR-{NN}` |
 
 5. **Bỏ phần không kiểm thử được** (mô tả kiến trúc, sơ đồ context, perspective). Phần **trống / `<Hint>` / struck-through** → KHÔNG tạo đơn vị, ghi 1 dòng OQ "phần X của FSD chưa có spec → không đo được coverage".
-6. **Xuất danh sách đơn vị đầy đủ (đếm được)** — giữ list `{ID | loại | mô tả | nguồn Mục}` cho TẤT CẢ đơn vị. Đây là **mẫu số** để tính coverage % ở Pha D (đếm máy móc, không ước lượng). Số đơn vị OQ (FSD chưa spec) tách riêng, không vào mẫu số.
+6. **MECE/Exhaustive self-check (E3)** — sau khi trích, tự soát để **không sót, không chồng**:
+   - **Exhaustive:** đã quét **mọi** mục FSD chưa? Đặc biệt: mọi FR, **mọi bước** Main Flow, **mọi mã lỗi** trong Error Matrix, **mọi giá trị** enum (không chỉ vài cái mẫu), mọi field × mỗi rule (bắt buộc/định dạng/khoảng). Tự hỏi: "loại đơn vị nào trong FSD chưa có dòng nào?".
+   - **Mutually Exclusive:** không có 2 đơn vị trùng nội dung (gộp nếu trùng).
+7. **Gắn chặng hành trình + happy-path (E4)** — mỗi đơn vị gán `journey` (vd `onboarding` / `signin` / `core` / `admin`…) suy từ thứ tự use case/flow trong FSD, và đánh dấu đơn vị thuộc **happy-path chính**. Đơn vị **nền** (đầu hành trình, các đơn vị khác phụ thuộc) → đánh dấu `foundational` để Pha D áp blocking. *(FSD không nêu rõ thứ tự → suy theo thứ tự UC/section; không chắc thì ghi OQ, không bịa.)*
+8. **Xuất danh sách đơn vị đầy đủ (đếm được)** — giữ list `{ID | loại | mô tả | nguồn Mục | journey | foundational?}` cho TẤT CẢ đơn vị. Đây là **mẫu số** để tính coverage % ở Pha D (đếm máy móc). Số đơn vị OQ (FSD chưa spec) tách riêng, không vào mẫu số.
 
 ### Pha C — Chuẩn hóa test case + map
 
@@ -140,6 +175,7 @@ Today: !`date +%Y-%m-%d`
    - (a) **Traceability tường minh:** TC có cột FSD ref/Requirement/UC → map thẳng, đối chiếu xem ref có tồn tại trong đơn vị Pha B (ref sai/lạc → đánh dấu).
    - (b) **Suy luận:** không có cột ref → match theo expected/từ khóa/tên field/mã lỗi. Map suy luận **luôn kèm `?`** để người review xác nhận.
    - 1 TC map được nhiều unit thì ghi nhiều; ghi rõ TC đó test **nhánh nào** (happy/negative/boundary) của unit.
+   - **Lập ma trận 2 chiều (E3):** (i) **FSD→TC** — mỗi đơn vị có những TC nào (→ tìm Missing/Weak ở Pha D); (ii) **TC→FSD** — mỗi TC map đơn vị nào (→ TC nào **không map gì** = ứng viên orphan, soát ở Pha D). Hai chiều phải nhất quán.
 
 ### Pha D — Detect gap + severity
 
@@ -158,6 +194,7 @@ Today: !`date +%Y-%m-%d`
     | MEDIUM | Enumeration, nhánh phụ, validation định dạng — Missing/Weak |
     | LOW | NFR mô tả, edge case hiếm |
 13. **Cảnh báo lệch ưu tiên (nếu có cột Priority):** đơn vị CRITICAL/HIGH chỉ được phủ bởi TC priority thấp → flag "ưu tiên test chưa tương xứng". Nhiều TC priority cao đổ vào phần orphan → flag.
+13b. **Blocking escalation theo hành trình (E4):** nếu đơn vị `foundational`/đầu hành trình bị ❌ Missing hoặc 🟠 Covered-but-Failing → **nâng severity lên CRITICAL** và gắn cờ 🚧 "chặn hành trình": phủ các chặng sau *giảm ý nghĩa* cho tới khi chặng nền pass. Liệt kê các đơn vị downstream bị ảnh hưởng. (Vd: onboarding/đăng nhập hỏng → coverage tác vụ lõi chưa đáng tin.)
 14. **Coverage % — TÍNH từ danh sách đơn vị Pha B (không ước lượng):**
     - `pct = số ✅ Covered (sạch) / tổng đơn vị (không kể OQ) × 100`, làm tròn.
     - Weak và Covered-but-Failing **KHÔNG** gộp vào Covered — báo riêng.
@@ -168,26 +205,50 @@ Today: !`date +%Y-%m-%d`
 
 15. Spawn **`@testcase-reviewer`** (Task tool) truyền: ma trận coverage dự kiến (đơn vị + trạng thái + TC map), danh sách orphan, nội dung FSD + test case đã trích. Agent soi false missing/orphan, gap bịa, severity lệch, Weak bị tính Covered (per `review-format.md`). Nhận findings → chỉnh ma trận. Loop ≤2 vòng nếu còn BLOCKING. Ghi nhớ "đã sửa gì theo review" để báo user.
 
+### Pha D.7 — Chấm điểm rubric (E2)
+
+16. Chấm **scorecard đa trục (0–100)**, mỗi trục có **benchmark** + trọng số; mỗi lần trừ điểm **bắt buộc** ghi: *mức trừ · lý do · dẫn chứng (ID cụ thể) · vì sao trừ nhiều/ít · cách cải thiện*.
+
+    | Trục | Trọng số | Benchmark (mốc) | Trừ điểm khi… |
+    |------|----------|------------------|---------------|
+    | Độ phủ (coverage %) | 30 | ≥95 xuất sắc · 80–94 khá · 60–79 trung bình · <60 yếu | mỗi đơn vị Missing; trừ nặng nếu CRITICAL/foundational |
+    | Chiều sâu negative/boundary | 20 | mọi rule/lỗi có nhánh đều có TC | đơn vị chỉ happy-path (Weak) |
+    | Sức khỏe thực thi | 15 | 0 CRITICAL Failed/Blocked | mỗi Covered-but-Failing ở luồng chính |
+    | Traceability | 10 | có cột FSD ref, map rõ | tỷ lệ map suy luận `?` cao |
+    | Cấu trúc/rõ ràng | 10 | TC đủ Steps+Expected | TC thiếu expected/bước |
+    | Kỷ luật phạm vi | 10 | ít orphan | nhiều TC ngoài FSD |
+    | Hành trình (blocking) | 5 | không chặng nền nào hở | có 🚧 chặn hành trình |
+
+    Quy đổi: tổng điểm có trọng số → xếp hạng (**A ≥90 · B 75–89 · C 60–74 · D <60**). KHÔNG cho điểm cảm tính — mỗi điểm trừ phải truy được về dẫn chứng.
+
 ### Pha E — In báo cáo (report-first)
 
 12. In ra chat (terse):
     ```
+    🏁 Điểm bộ test: {score}/100 — hạng {A/B/C/D}   (vòng {R} nếu multi-round)
+       Độ phủ {x}/30 · Negative/boundary {x}/20 · Sức khỏe thực thi {x}/15 · Traceability {x}/10 · Cấu trúc {x}/10 · Phạm vi {x}/10 · Hành trình {x}/5
+       (mỗi trục thấp → 1 dòng: trừ vì {dẫn chứng ID} → cải thiện {…})
+
     📊 Coverage {feature}: {C}/{T} đơn vị ✅ ({pct}%) · ⚠️ {W} yếu · 🟠 {CF} covered-but-failing · ❌ {Mi} thiếu · 🔶 {O} TC thừa
     (TC: {p} Passed / {f} Failed / {b} Blocked / {n} Not Run)
 
     Theo loại: FR {x/y} · FLOW {x/y} · VAL {x/y} · ERR {x/y} · ENUM {x/y}
 
+    🚧 Chặn hành trình (nếu có): {đơn vị nền Missing/Failing} → phủ {chặng sau} giảm ý nghĩa
+
     ❌ Thiếu (ưu tiên severity):
-    | ID đơn vị | Mô tả | Severity | Đề xuất TC |
-    | ERR-REP-005 | Bắt buộc chọn nhân viên | HIGH | TC negative: bỏ trống NV → báo lỗi |
+    | ID đơn vị | Mô tả | Journey | Severity | Đề xuất TC |
+    | ERR-REP-005 | Bắt buộc chọn nhân viên | signin | HIGH | TC negative: bỏ trống NV → báo lỗi |
     | ...
 
     ⚠️ Yếu: {liệt kê đơn vị + thiếu nhánh gì}
     🟠 Covered-but-Failing/Blocked: {đơn vị + TC đang Failed/Blocked → chưa thực sự verify}
-    🔶 TC thừa: {id TC + 1 dòng vì sao không map}
+    🔶 TC thừa (TC→FSD không map): {id TC + 1 dòng vì sao không map}
     ⚖️ Lệch ưu tiên: {đơn vị HIGH chỉ phủ bởi TC priority thấp, nếu có}
     ❓ OQ: {phần FSD trống/Hint không đo được}
     ```
+
+    *(Nếu Pha A.0 không đậu: in thẳng verdict "⛔ Trả về QA/BA" + dẫn chứng, KHÔNG in scorecard/coverage.)*
 
 ### Pha F — Write report (L1)
 
@@ -219,6 +280,10 @@ Today: !`date +%Y-%m-%d`
 - **Covered ≠ Passed** — đơn vị phủ bởi TC Failed/Blocked là Covered-but-Failing (chưa verify). Luôn xét cột Status nếu nguồn có.
 - **Verify trước khi báo Missing/orphan** — grep lại nguồn; đây là chỗ dễ sai nhất (lần chạy thật suýt nhầm "+N more" thành orphan).
 - **Dùng script `_scripts/xlsx2tsv.sh`** cho `.xlsx` thay vì dựng pipeline tại chỗ — ổn định, giữ đúng cột.
+- **Cổng sàng trước, chấm sau (E1)** — input thiếu cấu trúc thì trả về QA/BA kèm dẫn chứng, ĐỪNG chấm coverage rồi mới than "thiếu nhiều" — điểm thấp do input rác là vô nghĩa.
+- **MECE = chống sót (E3)** — chỗ dễ sót nhất: **enum chỉ trích vài giá trị mẫu** (phải lấy hết), bước flow giữa chừng, mã lỗi phụ. Luôn chạy chiều **TC→FSD** để bắt orphan, đừng chỉ FSD→TC.
+- **Điểm trừ phải có dẫn chứng (E2)** — mỗi điểm trừ kèm ID cụ thể + cách cải thiện; không cho điểm cảm tính. Benchmark cố định để hai lần chạy so sánh được.
+- **Onboarding hỏng → sau pass ít nghĩa (E4)** — đơn vị nền Missing/Failing nâng CRITICAL + cờ 🚧; báo rõ downstream bị ảnh hưởng. Multi-round: vòng 1 chốt happy-path nền trước.
 - **Báo cáo là ảnh chụp tại thời điểm** — FSD hoặc bộ test case đổi → chạy lại `/tc-review`.
 - **Truy nguồn từng đơn vị** — mỗi dòng ma trận ghi được "đơn vị này lấy từ Mục nào của FSD" để QA tự kiểm.
 
