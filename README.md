@@ -72,17 +72,23 @@ Luồng 7 pha (report-first — in ra chat, xác nhận trước khi ghi file):
 ```
 tc-review-skill/
 ├── README.md                       ← bạn đang đọc
+├── LICENSE                         ← MIT
+├── examples/
+│   └── sample-coverage-report.md   ← báo cáo mẫu (synthetic, minh họa output)
 └── claude-code/
     ├── .claude/
     │   ├── skills/tc-review/SKILL.md     ← skill chính
+    │   ├── agents/testcase-reviewer.md   ← agent soi lại ma trận coverage (tùy chọn)
     │   └── rules/                        ← 5 rule skill phụ thuộc
     │       ├── ba-conventions.md
     │       ├── approval-gate.md
     │       ├── naming-conventions.md
     │       ├── review-format.md          (thang severity)
     │       └── changelog.md
-    └── _templates/
-        └── tc-coverage-report.md         ← khung báo cáo coverage
+    ├── _templates/
+    │   └── tc-coverage-report.md         ← khung báo cáo coverage
+    └── _scripts/
+        └── xlsx2tsv.sh                   ← trích test case từ .xlsx ra TSV
 ```
 
 ---
@@ -93,8 +99,10 @@ Từ thư mục gốc của gói, copy cây `claude-code/` vào gốc workspace 
 
 ```bash
 cp -R claude-code/.claude/skills/tc-review   <workspace>/.claude/skills/
+cp    claude-code/.claude/agents/testcase-reviewer.md  <workspace>/.claude/agents/
 cp    claude-code/.claude/rules/*.md          <workspace>/.claude/rules/
 cp    claude-code/_templates/tc-coverage-report.md  <workspace>/_templates/
+cp    claude-code/_scripts/xlsx2tsv.sh         <workspace>/_scripts/
 ```
 
 > **5 rule trong `.claude/rules/`** đã được skill tham chiếu. Nếu workspace đích đã có bộ BA-KIT thì các rule này có thể đã tồn tại — giữ bản đang dùng, không cần đè. Nếu chưa có, bắt buộc copy đủ 5 file.

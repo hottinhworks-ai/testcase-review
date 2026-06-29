@@ -25,11 +25,15 @@ changelog:
 
 | Chỉ số | Giá trị |
 |--------|---------|
-| Tổng đơn vị kiểm thử (từ FSD) | {T} |
-| ✅ Covered | {C} ({pct}%) |
+| Tổng đơn vị kiểm thử (từ FSD, không kể OQ) | {T} |
+| ✅ Covered (sạch) | {C} (**{pct}%** — tính = C/T) |
 | ⚠️ Weak (chỉ happy-path / map suy luận) | {W} |
+| 🟠 Covered-but-Failing/Blocked (có TC nhưng đang Failed/Blocked) | {CF} |
 | ❌ Missing | {Mi} |
 | 🔶 Test case thừa (orphan) | {O} |
+| Trạng thái thực thi TC | {p} Passed / {f} Failed / {b} Blocked / {n} Not Run |
+
+> Coverage % **được tính** từ danh sách đơn vị (Pha B), không ước lượng. Weak và Covered-but-Failing KHÔNG gộp vào Covered. Đơn vị OQ (FSD chưa spec) đã loại khỏi mẫu số {T}.
 
 **Độ phủ theo loại đơn vị:**
 
@@ -47,15 +51,16 @@ changelog:
 
 ## 2. Ma trận coverage (FSD → Test Case)
 
-| ID đơn vị | Mô tả (từ FSD) | Nguồn FSD | Test case map | Trạng thái | Severity |
-|-----------|----------------|-----------|---------------|------------|----------|
-| FR-01 | {…} | Mục {n} | TC-001, TC-002 | ✅ Covered | — |
-| ERR-REP-005 | Bắt buộc chọn nhân viên | Main Flow b6 | — | ❌ Missing | HIGH |
-| VAL-fromdate | From Date hợp lệ | UI Validation | TC-010 (happy) | ⚠️ Weak | MEDIUM |
-| ENUM-actiontype:Edit | Hành động Sửa | Mục 5.2 | TC-020? | ⚠️ Weak (map `?`) | MEDIUM |
-| … | | | | | |
+| ID đơn vị | Mô tả (từ FSD) | Nguồn FSD | Test case map | TT thực thi | Trạng thái | Severity |
+|-----------|----------------|-----------|---------------|-------------|------------|----------|
+| FR-01 | {…} | Mục {n} | TC-001, TC-002 | Passed | ✅ Covered | — |
+| ERR-REP-005 | Bắt buộc chọn nhân viên | Main Flow b6 | — | — | ❌ Missing | HIGH |
+| VAL-fromdate | From Date hợp lệ | UI Validation | TC-010 (happy) | Passed | ⚠️ Weak | MEDIUM |
+| FR-07 | {…} | Mục {n} | TC-030 | Failed | 🟠 Covered-but-Failing | HIGH |
+| ENUM-actiontype:Edit | Hành động Sửa | Mục 5.2 | TC-020? | Not Run | ⚠️ Weak (map `?`) | MEDIUM |
+| … | | | | | | |
 
-<!-- Trạng thái: ✅ Covered / ⚠️ Weak / ❌ Missing. `?` = map suy luận chưa xác nhận. -->
+<!-- Trạng thái: ✅ Covered / ⚠️ Weak / 🟠 Covered-but-Failing / ❌ Missing. `?` = map suy luận chưa xác nhận. Cột TT thực thi lấy từ Status của test case. -->
 
 ## 3. Gap chi tiết
 
@@ -73,6 +78,14 @@ changelog:
 ### ⚠️ Yếu (Weak)
 
 - `{ID}` — đã có {TC happy} nhưng thiếu **{negative / boundary}**: {nhánh cụ thể, vd "To Date < From Date", "vượt 6 chữ số"}.
+
+### 🟠 Covered-but-Failing/Blocked (có TC nhưng chưa thực sự verify)
+
+- `{ID}` — phủ bởi {TC} nhưng đang **{Failed/Blocked}** ({defect ref nếu có}). Coi như chưa verify cho tới khi TC pass.
+
+### ⚖️ Lệch ưu tiên (nếu nguồn có cột Priority)
+
+- `{ID}` (severity {HIGH/CRITICAL}) chỉ được phủ bởi TC priority **{Low/Medium}** → đề nghị nâng ưu tiên test.
 
 ## 4. Test case thừa (orphan) — không map đơn vị FSD nào
 
