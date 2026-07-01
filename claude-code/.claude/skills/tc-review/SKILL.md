@@ -35,7 +35,8 @@ Bản chất: từ "đã có FSD + test case" → "biết test case còn hở ch
 - **Map mơ hồ phải đánh dấu `?`** — không tự tin map sai làm lệch coverage %. Ưu tiên traceability tường minh trong test case (cột "FSD ref"/"Requirement"); không có thì suy luận theo expected/từ khóa và đánh `?`.
 - **Phân loại gap 3 nhóm + severity** (Pha D), severity theo `review-format.md` (CRITICAL/HIGH/MEDIUM/LOW → ở đây map BLOCKING≈CRITICAL).
 - **Coverage % phải TÍNH, không ước lượng.** Pha B liệt kê đủ đơn vị (có ID); Pha D đếm máy móc `covered / tổng` (Weak KHÔNG gộp vào covered; đơn vị OQ loại khỏi mẫu số). KHÔNG ghi "~80%" cảm tính — phải xuất bảng đếm được.
-- **Xét trạng thái thực thi (nếu nguồn có).** Test case thường có cột Status (Passed/Failed/Blocked/Not Run) + có thể có sheet Defect List. **Covered ≠ Passed:** đơn vị được phủ bởi TC đang Failed/Blocked → đánh dấu **Covered-but-Failing/Blocked** (chưa thực sự verify), tách khỏi "Covered sạch".
+- **Xét trạng thái thực thi (nếu nguồn có).** Test case thường có cột Status (Passed / Failed / Blocked / Not Run / **By Pass**) + có thể có sheet Defect List. **Covered ≠ Passed:** chỉ **Passed** mới là "verify sạch". TC ở trạng thái **Failed / Blocked / Not Run / By Pass** đều **CHƯA verify** → đơn vị phủ bởi chúng đánh dấu **Covered-but-(Failing/Blocked/NotRun/ByPass)**, tách khỏi "Covered sạch".
+- **Quy tắc TC-duy-nhất (BẮT BUỘC).** Một đơn vị chỉ được ✅ Covered (sạch) khi có **ít nhất 1 TC map đúng ĐANG Passed**. Nếu **toàn bộ** TC phủ đơn vị đó đều Not Run/Blocked/Failed/By Pass (đặc biệt khi chỉ có **1 TC duy nhất**) → **KHÔNG** tính Covered, đưa vào bucket Covered-but-(chưa verify). *(Lỗi hay gặp: đơn vị có đúng 1 TC nhưng TC đó By Pass/Not Run mà vẫn bị đếm Covered.)*
 - **Dùng cột Priority (nếu có).** Phát hiện lệch ưu tiên: đơn vị FSD CRITICAL/HIGH chỉ được phủ bởi TC priority thấp → cảnh báo; nhiều TC priority cao đổ vào phần ngoài phạm vi → cảnh báo.
 - **Verify trước khi báo "thiếu"** (Pha D bắt buộc): với mỗi đơn vị định gán ❌ Missing và mỗi TC định gán 🔶 orphan, grep lại nguồn test/FSD bằng từ khóa (mã lỗi, tên field, "trùng/offline/khóa"…) để tránh false missing / false orphan.
 - **Agent gate (khuyến nghị).** Trước khi ghi báo cáo, spawn `@testcase-reviewer` soi lại ma trận (bắt false missing/orphan, gap bịa, severity lệch). `--no-agent` để bỏ qua.
@@ -119,7 +120,7 @@ Today: !`date +%Y-%m-%d`
 ### Pha A — Resolve & ingest
 
 1. Resolve `fsd` và `testcase` về nguồn (Outline vs local) theo Inputs. Đọc nội dung đầy đủ.
-2. **Test case từ CSV/MD:** parse các cột chuẩn nếu có — `ID`, `Title/Summary`, `Precondition`, `Steps`, `Expected`, `Priority`, **`Status` (Passed/Failed/Blocked/Not Run)**, và cột traceability (`FSD ref`/`Requirement`/`UC`). Cột tên khác → ánh xạ mềm.
+2. **Test case từ CSV/MD:** parse các cột chuẩn nếu có — `ID`, `Title/Summary`, `Precondition`, `Steps`, `Expected`, `Priority`, **`Status` (Passed/Failed/Blocked/Not Run/By Pass)**, và cột traceability (`FSD ref`/`Requirement`/`UC`). Cột tên khác → ánh xạ mềm.
 
    **Test case từ `.xlsx` (parse trực tiếp — dùng script đóng kèm):** chạy `_scripts/xlsx2tsv.sh`:
    - Liệt kê sheet: `bash _scripts/xlsx2tsv.sh "<file.xlsx>"` → in tên các sheet.
@@ -127,7 +128,7 @@ Today: !`date +%Y-%m-%d`
    - Hàng tiêu đề (Mã Case / Chức năng / Tóm tắt / Điều kiện / Bước / Kết quả mong đợi / Độ ưu tiên / Trạng thái…) định nghĩa cột → đọc các hàng TC theo đó.
    - **Nếu nguồn có sheet "Defect List":** xuất luôn để đối chiếu TC nào đang có defect (phục vụ Covered-but-Failing ở Pha D).
    - **Chỉ khi script lỗi** (xlsx mã hóa, cấu trúc lạ) → mới yêu cầu user export CSV hoặc dán bảng.
-3. In **bảng inventory** (chat): `FSD: {N} mục/section` · `Test case: {M} TC ({có/không} cột traceability) · trạng thái: {p} Passed / {f} Failed / {b} Blocked / {n} Not Run`. Thiếu nguồn → dừng hỏi.
+3. In **bảng inventory** (chat): `FSD: {N} mục/section` · `Test case: {M} TC ({có/không} cột traceability) · trạng thái: {p} Passed / {f} Failed / {b} Blocked / {n} Not Run / {bp} By Pass`. Thiếu nguồn → dừng hỏi.
 
 ### Pha A.0 — Cổng sàng đầu vào (readiness gate, E1)
 
@@ -180,11 +181,11 @@ Today: !`date +%Y-%m-%d`
 ### Pha D — Detect gap + severity
 
 8. Gán trạng thái mỗi coverage unit:
-   - **✅ Covered** — có ≥1 TC map đúng, và (nếu unit có nhánh lỗi/biên) các nhánh chính đã có TC.
+   - **✅ Covered** — có ≥1 TC map đúng **đang Passed**, và (nếu unit có nhánh lỗi/biên) các nhánh chính đã có TC. (Nếu mọi TC phủ đơn vị đều chưa Passed → xuống bucket Covered-but-… ở bước 10, KHÔNG tính Covered.)
    - **⚠️ Weak** — chỉ có happy-path; thiếu **negative/boundary** cho rule/validation/mã lỗi có nhánh; hoặc chỉ map bằng suy luận `?` chưa chắc.
    - **❌ Missing** — không TC nào map.
 9. **Verify trước khi chốt Missing/orphan (BẮT BUỘC):** với MỖI đơn vị định gán ❌ Missing → grep lại nguồn test bằng từ khóa (mã lỗi, tên field, "trùng/offline/khóa…") xác nhận thật sự không có TC (tránh false missing). Với MỖI TC định gán 🔶 orphan → grep lại FSD xác nhận FSD thật sự không spec (tránh false orphan, vd "+N more", reconciliation). Chỉ giữ Missing/orphan sau khi verify.
-10. **Overlay trạng thái thực thi (nếu nguồn có Status):** đơn vị ✅ Covered nhưng TC phủ đang **Failed/Blocked** → đổi nhãn **⚠️ Covered-but-Failing/Blocked** (có TC nhưng chưa thực sự verify). Đối chiếu sheet Defect List nếu có.
+10. **Overlay trạng thái thực thi (nếu nguồn có Status):** với đơn vị đang định ✅ Covered — nếu **toàn bộ** TC phủ nó đang **Failed / Blocked / Not Run / By Pass** (không có TC Passed nào) → đổi nhãn **🟠 Covered-but-(Failing/Blocked/NotRun/ByPass)** (có TC nhưng chưa thực sự verify), rút khỏi Covered sạch. **Soi kỹ đơn vị chỉ có 1 TC duy nhất** — dễ bị đếm Covered nhầm. Đối chiếu sheet Defect List nếu có.
 11. **TC thừa (orphan):** TC không map đơn vị FSD nào → liệt kê riêng. Diễn giải khả năng: (i) test hành vi ngoài phạm vi FSD; (ii) FSD thiếu spec cho hành vi đó (tín hiệu gap FSD → gợi `/gap` hoặc cập nhật FSD). KHÔNG tự kết luận đúng/sai.
 12. **Severity** (theo `review-format.md`):
     | Severity | Tiêu chí |
